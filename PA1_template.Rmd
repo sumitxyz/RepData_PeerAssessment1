@@ -5,21 +5,108 @@ output:
     keep_md: true
 ---
 
+```{r echo=FALSE}
+setwd("C:\\All Work\\Box Sync\\2015\\Analytics Engineer Course\\Reproducible Research\\Course Project")
 
+```
 ## Loading and preprocessing the data
-
-
+Data is loaded using `r "read.csv"` and stored in the dataframe `r "mydata"`.
+```{r}
+library(ggplot2)
+mydata = read.csv("activity/activity.csv")
+head(mydata)
+```
 
 ## What is mean total number of steps taken per day?
+First we filter out the rows which don't have missing values in the "steps" column. Then the `r "aggregate"` function is used to calculate the average number of steps per day.
+```{r}
+mydataf = mydata[!is.na(mydata$steps),]
+dailystepscount = aggregate(mydataf$steps,by=list(mydataf$date), FUN=sum, na.rm=TRUE)
+names(dailystepscount)=c("Date","Total Steps")
+head(dailystepscount)
+```
 
+The histogram for total number of steps per day is plotted.
+```{r}
+hist(dailystepscount$`Total Steps`, 
+     breaks=20, 
+     col="green",
+     xlab="Total Steps",
+     main="Histogram of Total Steps")
+```
 
+Mean and median of the total steps per day:
+```{r}
+mean(dailystepscount$`Total Steps`)
+median(dailystepscount$`Total Steps`)
+```
 
 ## What is the average daily activity pattern?
 
+```{r}
+avgstepts = aggregate(mydata$steps,by=list(mydata$interval), FUN=mean, na.rm=TRUE)
+names(avgstepts) = c("interval","Average Steps")
+ggplot(avgstepts, aes(x=interval, y=`Average Steps`))+
+  geom_line(col="red")
+```
 
+Interval with Maximum number of average steps:
+```{r}
+avgstepts[which.max(avgstepts$`Average Steps`),]
+```
 
-## Imputing missing values
+#Inputting Missing Values
+Total number of rows with missing values:
+```{r}
+nrow(mydata[is.na(mydata$steps),])
+```
+Missing values are filled by using the **Mean for the Interval**
+```{r}
+missingvals <- mydata[is.na(mydata$steps),]
+nomissingvals <- mydata[!is.na(mydata$steps),]
+names(avgstepts)=c('interval','steps')
+mergevals <- merge(avgstepts, missingvals, by='interval')
+filledmissingvals <- mergevals[,c('steps.x','date','interval')]
+names(filledmissingvals)[1]='steps'
+```
+New data set with the filled missing values:
+```{r}
+mydatafilled <- rbind(nomissingvals,filledmissingvals)
+nrow(is.na(mydatafilled$steps))
+```
 
+Daily total number of steps for the new data set:
+```{r}
+dailystepscount = aggregate(mydatafilled$steps,by=list(mydatafilled$date), FUN=sum, na.rm=TRUE)
+names(dailystepscount)=c("Date","Total Steps")
+head(dailystepscount)
+```
 
+Histogram of the new data set:
+```{r}
+hist(dailystepscount$`Total Steps`, 
+     breaks=20, 
+     col="blue",
+     xlab="Total Steps",
+     main="Histogram of Total Steps")
+
+mean(dailystepscount$`Total Steps`)
+median(dailystepscount$`Total Steps`)
+```
 
 ## Are there differences in activity patterns between weekdays and weekends?
+```{r}
+mydatafilled$date <- as.Date(mydatafilled$date)
+mydatafilled$day = weekdays(mydatafilled$date)
+mydatafilled$daytype = ''
+mydatafilled[mydatafilled$day %in% c("Saturday","Sunday"),'daytype']="Weekend"
+mydatafilled[!mydatafilled$day %in% c("Saturday","Sunday"),'daytype']="Weekday"
+mydatafilled$daytype <- factor(mydatafilled$daytype)
+avgstepsdaytype = aggregate(mydatafilled$steps, by=list( mydatafilled$interval, mydatafilled$daytype), FUN=mean)
+names(avgstepsdaytype)=c("Interval","DayType","Average Steps")
+ggplot(data=avgstepsdaytype, aes(x=Interval, y=`Average Steps`))+
+  geom_line(color="blue")+
+  facet_grid(.~ DayType)
+```
+
+It can be observed that the movemnt i.e. the number of steps are more uniform across the day during the weekends. 
